@@ -6,7 +6,7 @@ import logger from '@wdio/logger'
 import { runTestInFiberContext, executeHooksWithArgs } from '@wdio/utils'
 
 import { loadModule } from './utils'
-import { INTERFACES, EVENTS, NOOP, MOCHA_TIMEOUT_MESSAGE, MOCHA_TIMEOUT_MESSAGE_REPLACEMENT } from './constants'
+import { INTERFACES, EVENTS, MOCHA_TIMEOUT_MESSAGE, MOCHA_TIMEOUT_MESSAGE_REPLACEMENT } from './constants'
 
 const log = logger('@wdio/mocha-framework')
 
@@ -38,7 +38,7 @@ class MochaAdapter {
 
     mocha: Mocha;
 
-    runner: Mocha.Runner = {}
+    runner: Mocha.Runner;
     level = 0
     suiteCnt = new Map()
     hookCnt = new Map()
@@ -62,7 +62,7 @@ class MochaAdapter {
         const { mochaOpts } = this.config
         const mocha = this.mocha = new Mocha(mochaOpts)
         await mocha.loadFilesAsync()
-        mocha.reporter(NOOP)
+        mocha.reporter('spec')
         mocha.fullTrace()
 
         this.specs.forEach((spec) => mocha.addFile(spec))
@@ -89,9 +89,9 @@ class MochaAdapter {
             /**
              * grep
              */
-            const mochaRunner = new Mocha.Runner(this.mocha.suite)
+            const mochaRunner = new Mocha.Runner(this.mocha.suite, false)
             if (mochaOpts.grep) {
-                mochaRunner.grep(this.mocha.options.grep, mochaOpts.invert)
+                mochaRunner.grep(this.mocha.options.grep as RegExp, mochaOpts.invert)
             }
 
             this._hasTests = mochaRunner.total > 0
@@ -151,7 +151,7 @@ class MochaAdapter {
         this.requireExternalModules([...compilers, ...require], context)
     }
 
-    preRequire(context, file, mocha) {
+    preRequire(context: Mocha.MochaGlobals, file: string, mocha: Mocha) {
         const options = this.config.mochaOpts
 
         const match = MOCHA_UI_TYPE_EXTRACTOR.exec(options.ui)
@@ -356,12 +356,12 @@ class MochaAdapter {
     }
 }
 
-const adapterFactory = {}
-
-adapterFactory.init = async function (...args) {
-    const adapter = new MochaAdapter(...args)
-    const instance = await adapter.init()
-    return instance
+const adapterFactory = {
+    init: async function (...args: ConstructorParameters<typeof MochaAdapter>) {
+        const adapter = new MochaAdapter(...args)
+        const instance = await adapter.init()
+        return instance
+    }
 }
 
 export default adapterFactory
