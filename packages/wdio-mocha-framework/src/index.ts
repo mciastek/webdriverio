@@ -22,10 +22,8 @@ const log = logger('@wdio/mocha-framework')
 const MOCHA_UI_TYPE_EXTRACTOR = /^(?:.*-)?([^-.]+)(?:.js)?$/
 const DEFAULT_INTERFACE_TYPE = 'bdd'
 
-interface Config {
-    waitforTimeout: number;
-    waitforInterval: number;
-    mochaOpts: {};
+interface Config extends WebdriverIO.RemoteOptions {
+    mochaOpts: Mocha.MochaOptions;
 }
 
 /**
@@ -46,7 +44,7 @@ class MochaAdapter {
     hookCnt = new Map()
     testCnt = new Map()
     suiteIds = ['0']
-    specLoadError = null
+    specLoadError: Error | null = null
 
     private _hasTests: boolean = true;
 
@@ -84,7 +82,7 @@ class MochaAdapter {
         return this
     }
 
-    async _loadFiles(mochaOpts) {
+    async _loadFiles(mochaOpts: Mocha.MochaOptions) {
         try {
             await this.mocha.loadFilesAsync()
 
@@ -126,7 +124,7 @@ class MochaAdapter {
             }
 
             Object.keys(EVENTS).forEach((e) =>
-                this.runner.on(e, this.emit.bind(this, EVENTS[e])))
+                this.runner.on(e, this.emit.bind(this, EVENTS[e as keyof typeof EVENTS])))
 
             this.runner.suite.beforeAll(this.wrapHook('beforeSuite'))
             this.runner.suite.afterAll(this.wrapHook('afterSuite'))
@@ -157,14 +155,14 @@ class MochaAdapter {
         const options = this.config.mochaOpts
 
         const match = MOCHA_UI_TYPE_EXTRACTOR.exec(options.ui)
-        const type = (match && INTERFACES[match[1]] && match[1]) || DEFAULT_INTERFACE_TYPE
+        const type = (match && INTERFACES[match[1] as keyof typeof INTERFACES] && match[1]) || DEFAULT_INTERFACE_TYPE
 
         const hookArgsFn = (context) => {
             return [{ ...context.test, parent: context.test.parent.title }, context]
         }
 
-        INTERFACES[type].forEach((fnName) => {
-            let testCommand = INTERFACES[type][0]
+        INTERFACES[type as keyof typeof INTERFACES].forEach((fnName: string) => {
+            let testCommand = INTERFACES[type as keyof typeof INTERFACES][0]
             const isTest = [testCommand, testCommand + '.only'].includes(fnName)
 
             runTestInFiberContext(
@@ -183,7 +181,7 @@ class MochaAdapter {
     /**
      * Hooks which are added as true Mocha hooks need to call done() to notify async
      */
-    wrapHook(hookName) {
+    wrapHook(hookName: string) {
         return () => executeHooksWithArgs(
             this.config[hookName],
             this.prepareMessage(hookName)
@@ -192,8 +190,8 @@ class MochaAdapter {
         })
     }
 
-    prepareMessage(hookName) {
-        const params = { type: hookName }
+    prepareMessage(hookName: string) {
+        const params: { type: string, payload?: Mocha.Test | Mocha.Suite } = { type: hookName }
 
         switch (hookName) {
         case 'beforeSuite':
@@ -299,7 +297,7 @@ class MochaAdapter {
         this.reporter.emit(message.type, message)
     }
 
-    getSyncEventIdStart(type) {
+    getSyncEventIdStart(type: 'suite' | 'hook' | 'test') {
         const prop = `${type}Cnt`
         const suiteId = this.suiteIds[this.suiteIds.length - 1]
         const cnt = this[prop].has(suiteId)
@@ -309,7 +307,7 @@ class MochaAdapter {
         return `${type}-${suiteId}-${cnt}`
     }
 
-    getSyncEventIdEnd(type) {
+    getSyncEventIdEnd(type: 'suite' | 'hook' | 'test') {
         const prop = `${type}Cnt`
         const suiteId = this.suiteIds[this.suiteIds.length - 1]
         const cnt = this[prop].get(suiteId) - 1
