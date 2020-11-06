@@ -1,4 +1,4 @@
-export function loadModule (name, context) {
+export function loadModule (name: string, context: string) {
     try {
         module.context = context
         require(name)

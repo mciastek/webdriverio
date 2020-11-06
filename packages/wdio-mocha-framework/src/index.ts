@@ -22,11 +22,35 @@ const log = logger('@wdio/mocha-framework')
 const MOCHA_UI_TYPE_EXTRACTOR = /^(?:.*-)?([^-.]+)(?:.js)?$/
 const DEFAULT_INTERFACE_TYPE = 'bdd'
 
+interface Config {
+    waitforTimeout: number;
+    waitforInterval: number;
+    mochaOpts: {};
+}
+
 /**
  * Mocha runner
  */
 class MochaAdapter {
-    constructor(cid, config, specs, capabilities, reporter) {
+    cid: string;
+    config: Config;
+    reporter: Mocha.Reporter;
+    capabilities: WebDriver.DesiredCapabilities;
+    specs: string[];
+
+    mocha: Mocha;
+
+    runner: Mocha.Runner = {}
+    level = 0
+    suiteCnt = new Map()
+    hookCnt = new Map()
+    testCnt = new Map()
+    suiteIds = ['0']
+    specLoadError = null
+
+    private _hasTests: boolean = true;
+
+    constructor(cid: string, config: Config, specs: string[], capabilities: WebDriver.DesiredCapabilities, reporter: Mocha.Reporter) {
         this.cid = cid
         this.capabilities = capabilities
         this.reporter = reporter
@@ -34,14 +58,6 @@ class MochaAdapter {
         this.config = Object.assign({
             mochaOpts: {}
         }, config)
-        this.runner = {}
-        this.level = 0
-        this.suiteCnt = new Map()
-        this.hookCnt = new Map()
-        this.testCnt = new Map()
-        this.suiteIds = ['0']
-        this._hasTests = true
-        this.specLoadError = null
     }
 
     async init() {
